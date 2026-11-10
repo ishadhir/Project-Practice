@@ -7,7 +7,7 @@ st.title("Stock Health Check")
 ticker = st.text_input("Enter a ticker", "AAPL").upper()
 stock = yf.Ticker(ticker)
 info = stock.info
-price = info.get("currentPrice")
+price = stock.history(period="5d")["Close"].iloc[-1]
 
 tab1, tab2, tab3, tab4, tab5 = st.tabs(["Home", "Health", "Risk", "Valuation", "Recommendation"])
 
