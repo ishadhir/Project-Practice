@@ -37,3 +37,16 @@ with tab2:
     if roa and roa > 0.05: health += 1
     st.subheader(f"Health Score: {health} / 4")
 
+
+# ---------- RISK (CAPM) ----------
+with tab3:
+    st.header("Risk: CAPM Beta")
+    prices = yf.download([ticker, "SPY"], period="5y", interval="1mo", auto_adjust=True)["Close"]
+    returns = prices.pct_change().dropna()
+
+    beta, alpha = np.polyfit(returns["SPY"], returns[ticker], 1)
+
+    st.metric("Beta", round(beta, 2))
+    st.metric("Alpha (monthly)", f"{alpha:.2%}")
+    st.scatter_chart(returns, x="SPY", y=ticker)
+
