@@ -1,0 +1,10 @@
+import streamlit as st
+import yfinance as yf
+import numpy as np
+
+st.title("Stock Health Check")
+
+ticker = st.text_input("Enter a ticker", "AAPL").upper()
+stock = yf.Ticker(ticker)
+info = stock.info
+price = info.get("currentPrice")
