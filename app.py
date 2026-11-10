@@ -8,6 +8,18 @@ ticker = st.text_input("Enter a ticker", "AAPL").upper()
 stock = yf.Ticker(ticker)
 info = stock.info
 price = stock.history(period="5d")["Close"].iloc[-1]
+income = stock.financials
+balance = stock.balance_sheet
+cashflow = stock.cashflow
+
+def get(table, row):
+    try:
+        return float(table.loc[row].dropna().iloc[0])
+    except Exception:
+        return None
+
+def ratio(a, b):
+    return a / b if a and b else None
 
 tab1, tab2, tab3, tab4, tab5 = st.tabs(["Home", "Health", "Risk", "Valuation", "Recommendation"])
 
@@ -20,19 +32,19 @@ with tab1:
 # ---------- HEALTH ----------
 with tab2:
     st.header("Financial Health")
-    current_ratio = info.get("currentRatio")
-    debt_equity = info.get("debtToEquity")
-    profit_margin = info.get("profitMargins")
-    roa = info.get("returnOnAssets")
+    current_ratio = ratio(get(balance, "Current Assets"), get(balance, "Current Liabilities"))
+    debt_equity = ratio(get(balance, "Total Debt"), get(balance, "Stockholders Equity"))
+    profit_margin = ratio(get(income, "Net Income"), get(income, "Total Revenue"))
+    roa = ratio(get(income, "Net Income"), get(balance, "Total Assets"))
 
-    st.metric("Current Ratio", current_ratio)
-    st.metric("Debt / Equity (%)", debt_equity)
-    st.metric("Profit Margin", profit_margin)
-    st.metric("Return on Assets", roa)
+    st.metric("Current Ratio", round(current_ratio, 2) if current_ratio else "N/A")
+    st.metric("Debt / Equity", round(debt_equity, 2) if debt_equity else "N/A")
+    st.metric("Profit Margin", f"{profit_margin:.1%}" if profit_margin else "N/A")
+    st.metric("Return on Assets", f"{roa:.1%}" if roa else "N/A")
 
     health = 0
     if current_ratio and current_ratio > 1.5: health += 1
-    if debt_equity and debt_equity < 100: health += 1
+    if debt_equity and debt_equity < 1.0: health += 1
     if profit_margin and profit_margin > 0.10: health += 1
     if roa and roa > 0.05: health += 1
     st.subheader(f"Health Score: {health} / 4")
@@ -56,8 +68,8 @@ with tab4:
     r = st.slider("Discount rate (r)", 0.06, 0.15, 0.09)
     g = st.slider("Growth rate (g)", 0.00, 0.05, 0.03)
 
-    fcf = info.get("freeCashflow")
-    shares = info.get("sharesOutstanding")
+    fcf = get(cashflow, "Free Cash Flow")
+    shares = get(balance, "Ordinary Shares Number")
 
     if fcf and fcf > 0:
         value_per_share = (fcf * (1 + g) / (r - g)) / shares
