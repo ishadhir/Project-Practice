@@ -67,3 +67,21 @@ with tab4:
         st.warning("Free cash flow is negative or missing, so DCF can't be used.")
 
     st.metric("Market Price", f"${price:,.2f}")
+
+# ---------- RECOMMENDATION ----------
+with tab5:
+    st.header("Recommendation")
+    points = 0
+    if health >= 3: points += 1
+    if value_per_share > price: points += 1
+    if alpha > 0: points += 1
+
+    if points >= 2:
+        st.success("BUY")
+    elif points == 1:
+        st.warning("HOLD")
+    else:
+        st.error("SELL")
+
+    st.write(f"Points: {points} / 3 (health, valuation, alpha)")
+    st.caption("Class project only. Not investment advice.")
