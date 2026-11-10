@@ -16,3 +16,24 @@ with tab1:
     st.header(info.get("longName", ticker))
     st.write("Sector:", info.get("sector"))
     st.metric("Current Price", f"${price:,.2f}")
+
+# ---------- HEALTH ----------
+with tab2:
+    st.header("Financial Health")
+    current_ratio = info.get("currentRatio")
+    debt_equity = info.get("debtToEquity")
+    profit_margin = info.get("profitMargins")
+    roa = info.get("returnOnAssets")
+
+    st.metric("Current Ratio", current_ratio)
+    st.metric("Debt / Equity (%)", debt_equity)
+    st.metric("Profit Margin", profit_margin)
+    st.metric("Return on Assets", roa)
+
+    health = 0
+    if current_ratio and current_ratio > 1.5: health += 1
+    if debt_equity and debt_equity < 100: health += 1
+    if profit_margin and profit_margin > 0.10: health += 1
+    if roa and roa > 0.05: health += 1
+    st.subheader(f"Health Score: {health} / 4")
+
