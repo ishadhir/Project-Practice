@@ -8,3 +8,11 @@ ticker = st.text_input("Enter a ticker", "AAPL").upper()
 stock = yf.Ticker(ticker)
 info = stock.info
 price = info.get("currentPrice")
+
+tab1, tab2, tab3, tab4, tab5 = st.tabs(["Home", "Health", "Risk", "Valuation", "Recommendation"])
+
+# ---------- HOME ----------
+with tab1:
+    st.header(info.get("longName", ticker))
+    st.write("Sector:", info.get("sector"))
+    st.metric("Current Price", f"${price:,.2f}")
