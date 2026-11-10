@@ -50,3 +50,20 @@ with tab3:
     st.metric("Alpha (monthly)", f"{alpha:.2%}")
     st.scatter_chart(returns, x="SPY", y=ticker)
 
+# ---------- VALUATION (DCF) ----------
+with tab4:
+    st.header("DCF Valuation")
+    r = st.slider("Discount rate (r)", 0.06, 0.15, 0.09)
+    g = st.slider("Growth rate (g)", 0.00, 0.05, 0.03)
+
+    fcf = info.get("freeCashflow")
+    shares = info.get("sharesOutstanding")
+
+    if fcf and fcf > 0:
+        value_per_share = (fcf * (1 + g) / (r - g)) / shares
+        st.metric("Intrinsic Value per Share", f"${value_per_share:,.2f}")
+    else:
+        value_per_share = 0
+        st.warning("Free cash flow is negative or missing, so DCF can't be used.")
+
+    st.metric("Market Price", f"${price:,.2f}")
