@@ -23,6 +23,7 @@ def ratio(a, b):
 
 tab1, tab2, tab3, tab4, tab5 = st.tabs(["Home", "Health", "Risk", "Valuation", "Recommendation"])
 
+
 # ---------- HOME ----------
 with tab1:
     st.header(info.get("longName", ticker))
@@ -80,6 +81,90 @@ with tab4:
 
     st.metric("Market Price", f"${price:,.2f}")
 
+# ---------- PREDICTION (P/E + ROA -> next-year alpha) ----------
+with tab_pred:
+    st.header("Next-Year Return Prediction")
+    st.write("Uses last year's P/E and ROA to predict next year's alpha "
+             "(stock return minus S&P 500 return).")
+
+    PEERS = ["AAPL", "MSFT", "GOOGL", "AMZN", "META", "NVDA", "ORCL", "CSCO",
+             "IBM", "INTC", "ADBE", "CRM", "JNJ", "PFE", "MRK", "ABT", "KO",
+             "PEP", "PG", "WMT", "COST", "HD", "MCD", "NKE", "JPM", "BAC",
+             "WFC", "XOM", "CVX", "CAT"]
+
+    @st.cache_data(ttl=86400)
+    def get_prices(sym):
+        px = yf.Ticker(sym).history(period="6y")["Close"]
+        px.index = px.index.tz_localize(None)
+        return px
+
+    def pick_row(df, names):
+        for n in names:
+            if n in df.index:
+                return df.loc[n]
+        return None
+
+    @st.cache_data(ttl=86400, show_spinner="Downloading data for peer stocks...")
+    def build_dataset(symbols):
+        mkt = get_prices("SPY")
+        rows = []
+        for s in symbols:
+            try:
+                t = yf.Ticker(s)
+                inc, bal = t.income_stmt, t.balance_sheet
+                ni = pick_row(inc, ["Net Income"])
+                eps = pick_row(inc, ["Diluted EPS", "Basic EPS"])
+                ta = pick_row(bal, ["Total Assets"])
+                px = get_prices(s)
+            except Exception:
+                continue
+            if ni is None or eps is None or ta is None:
+                continue
+            for d in inc.columns:
+                d = pd.Timestamp(d).tz_localize(None)
+                p, e, n, a = px.asof(d), eps.get(d), ni.get(d), ta.get(d)
+                if pd.isna(p) or pd.isna(e) or pd.isna(n) or pd.isna(a) or e <= 0:
+                    continue
+                end = d + pd.DateOffset(years=1)
+                if end <= px.index[-1]:   # next year's return is known
+                    nxt = (px.asof(end) / p - 1) - (mkt.asof(end) / mkt.asof(d) - 1)
+                else:                     # most recent year -> what we predict
+                    nxt = np.nan
+                rows.append({"ticker": s, "date": d, "PE": p / e,
+                             "ROA": n / a, "alpha_next": nxt})
+        return pd.DataFrame(rows)
+
+    data = build_dataset(tuple(sorted(set(PEERS + [ticker]))))
+
+    train = data.dropna(subset=["alpha_next"])
+    train = train[(train["PE"] > 0) & (train["PE"] < 100)]
+
+    X = sm.add_constant(train[["PE", "ROA"]])
+    ols = sm.OLS(train["alpha_next"], X).fit()
+    logit = sm.Logit((train["alpha_next"] > 0).astype(int), X).fit(disp=0)
+
+    latest = data[data["ticker"] == ticker].sort_values("date").tail(1)
+    if latest.empty:
+        pred_alpha, prob_up = 0.0, 0.5
+        st.warning("No positive earnings for this ticker, so no prediction.")
+    else:
+        x_now = pd.DataFrame({"const": [1.0],
+                              "PE": [latest["PE"].iloc[0]],
+                              "ROA": [latest["ROA"].iloc[0]]})
+        pred_alpha = float(ols.predict(x_now)[0])
+        prob_up = float(logit.predict(x_now)[0])
+
+        c1, c2 = st.columns(2)
+        c1.metric("Last year's P/E", f"{latest['PE'].iloc[0]:.1f}")
+        c2.metric("Last year's ROA", f"{latest['ROA'].iloc[0]:.1%}")
+        c1.metric("Predicted next-year alpha", f"{pred_alpha:+.1%}")
+        c2.metric("Chance of beating S&P 500", f"{prob_up:.0%}")
+
+    b = ols.params
+    st.write(f"**Alpha(next yr) = {b['const']:.4f} + {b['PE']:.5f}·P/E + {b['ROA']:.4f}·ROA**")
+    st.write(f"Observations: {int(ols.nobs)} | R²: {ols.rsquared:.3f}")
+    st.dataframe(pd.DataFrame({"Coefficient": ols.params, "p-value": ols.pvalues}).round(4))
+
 # ---------- RECOMMENDATION ----------
 with tab5:
     st.header("Recommendation")
@@ -87,10 +172,12 @@ with tab5:
     if health >= 3: points += 1
     if value_per_share > price: points += 1
     if alpha > 0: points += 1
+    if pred_alpha > 0: points += 1
+    
 
-    if points >= 2:
+    if points >= 3:
         st.success("BUY")
-    elif points == 1:
+    elif points == 2:
         st.warning("HOLD")
     else:
         st.error("SELL")
