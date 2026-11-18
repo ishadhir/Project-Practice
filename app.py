@@ -21,7 +21,7 @@ def get(table, row):
 def ratio(a, b):
     return a / b if a and b else None
 
-tab1, tab2, tab3, tab4, tab5 = st.tabs(["Home", "Health", "Risk", "Valuation", "Recommendation"])
+tab1, tab2, tab3, tab4, tab_pred, tab5 = st.tabs(["Home", "Health", "Risk", "Valuation", "Prediction", "Recommendation"])
 
 
 # ---------- HOME ----------
